@@ -1395,18 +1395,18 @@ function showToast(msg, kind) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
 }
 
-// ---------- Antigravity-Style Particle Canvas (White BG, Orbital, Mouse-Reactive) ----------
+// ---------- Antigravity Ring/Donut Particle Canvas ----------
+// Particles = small elliptical rings (circle with hole) each spinning on own axis
+// White BG, slow drift, per-particle rotation, mouse repulsion
 let canvasAnimId = null;
 let particles = [];
 let mousePos = { x: -9999, y: -9999 };
 let isTouchDevice = false;
-let orbitAngle = 0; // global slow rotation offset
 
 function initLoginCanvas() {
   const canvas = document.getElementById('login-canvas');
   if (!canvas) return;
 
-  // Detect touch device
   isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
   function resize() {
@@ -1417,7 +1417,7 @@ function initLoginCanvas() {
   window.addEventListener('resize', resize);
   resize();
 
-  // Mouse tracking (only on non-touch or hybrid)
+  // Mouse tracking
   window.addEventListener('mousemove', (e) => {
     mousePos.x = e.clientX;
     mousePos.y = e.clientY;
@@ -1427,13 +1427,10 @@ function initLoginCanvas() {
     mousePos.y = -9999;
   });
 
-  // Live HUD Latency variation ticker
+  // HUD latency ticker
   setInterval(() => {
     const latEl = document.getElementById('login-hud-latency');
-    if (latEl) {
-      const ms = Math.floor(10 + Math.random() * 5);
-      latEl.textContent = ms + 'ms';
-    }
+    if (latEl) latEl.textContent = Math.floor(10 + Math.random() * 5) + 'ms';
   }, 2400);
 }
 
@@ -1442,77 +1439,73 @@ function createParticles() {
   if (!canvas) return;
   const isLight = (document.documentElement.getAttribute('data-theme') || 'light') === 'light';
 
-  // Density: more particles for a rich field, fewer on mobile
   const isMobile = window.innerWidth < 768;
-  const baseDensity = isMobile ? 14000 : 8500;
-  const count = Math.min(Math.floor((canvas.width * canvas.height) / baseDensity), isMobile ? 80 : 200);
+  // Enough rings to feel rich but not heavy
+  const count = isMobile ? 60 : 160;
 
   particles = [];
   for (let i = 0; i < count; i++) {
-    // Depth layer: 0=far (slow, small, faint), 1=mid, 2=near (faster, larger, more opaque)
+    // 3 depth layers: far=small/slow/faint, mid, near=large/fast/opaque
     const layer = Math.floor(Math.random() * 3);
-    const speedMult = [0.18, 0.36, 0.62][layer];
-    const sizeMult  = [0.5, 1.0, 1.6][layer];
-    const alphaMult = [0.25, 0.45, 0.7][layer];
+    const layerScale  = [0.55, 1.0, 1.55][layer];
+    const speedScale  = [0.20, 0.42, 0.70][layer];
+    const alphaScale  = [0.22, 0.45, 0.72][layer];
 
-    // Orbital origin: random point distributed across canvas, with slight center-weighting
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const spread = Math.max(canvas.width, canvas.height) * 0.52;
-    const angle = Math.random() * Math.PI * 2;
-    const dist   = Math.random() * spread;
-    const baseX  = cx + Math.cos(angle) * dist;
-    const baseY  = cy + Math.sin(angle) * dist;
+    // Random position across full viewport
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
 
-    // Color palette: light = very subtle grays/near-blacks; dark = teal/cyan
+    // Ring size: outer radius (the ring's "outer edge")
+    // Aspect ratio < 1 makes it an ellipse — rotation becomes VISIBLE as alignment changes
+    const outerR = (Math.random() * 5 + 3) * layerScale;   // 3–13px outer radius
+    const aspect = Math.random() * 0.45 + 0.25;             // 0.25–0.70 squish (not perfect circle so rotation shows)
+    const strokeW = Math.max(1, outerR * (Math.random() * 0.35 + 0.18)); // ring wall thickness
+
+    // Per-particle self-rotation speed (each ring spins at its own rate)
+    const rotSpeed = (Math.random() - 0.5) * 0.035 * speedScale; // ±0.035 rad/frame
+
+    // Color: B&W for light theme, teal/cyan for dark
     let col;
     if (isLight) {
-      const tone = Math.random();
-      col = tone > 0.65 ? '#0f172a' :
-            tone > 0.35 ? '#475569' :
-                          '#94a3b8';
+      const r = Math.random();
+      col = r > 0.72 ? '#0f172a' :   // near-black  (28%)
+            r > 0.42 ? '#334155' :   // dark slate  (30%)
+            r > 0.18 ? '#64748b' :   // mid slate   (24%)
+                       '#94a3b8';    // light slate (18%)
     } else {
-      const tone = Math.random();
-      col = tone > 0.6 ? '#23d6bb' :
-            tone > 0.3 ? '#38bdf8' :
-                         '#64748b';
+      const r = Math.random();
+      col = r > 0.60 ? '#23d6bb' :
+            r > 0.30 ? '#38bdf8' :
+                       '#64748b';
     }
 
-    const baseAlpha = isLight
-      ? (Math.random() * 0.18 + 0.06) * alphaMult
-      : (Math.random() * 0.35 + 0.15) * alphaMult;
+    const baseAlpha = (Math.random() * 0.22 + 0.08) * alphaScale;
 
     particles.push({
-      // Current position
-      x: baseX + (Math.random() - 0.5) * 30,
-      y: baseY + (Math.random() - 0.5) * 30,
-      // Orbital parameters
-      orbitAngle: angle,
-      orbitDist: dist,
-      orbitSpeed: (Math.random() - 0.5) * 0.0006 * speedMult, // very slow rotation
-      // Autonomous drift (tiny Brownian)
-      vx: (Math.random() - 0.5) * 0.12 * speedMult,
-      vy: (Math.random() - 0.5) * 0.12 * speedMult,
+      x, y,
+      // Gentle constant drift
+      vx: (Math.random() - 0.5) * 0.30 * speedScale,
+      vy: (Math.random() - 0.5) * 0.30 * speedScale,
+      // Ring shape
+      outerR,
+      aspect,      // y-axis scale: creates ellipse so rotation is visible
+      strokeW,
+      // Self-rotation
+      rotation: Math.random() * Math.PI * 2, // starting angle
+      rotSpeed,                               // rad per frame (each ring different)
       // Appearance
-      radius: (Math.random() * 1.2 + 0.4) * sizeMult,
       color: col,
-      alpha: Math.max(0.03, baseAlpha),
-      baseAlpha: Math.max(0.03, baseAlpha),
-      // Subtle breath animation
+      baseAlpha: Math.max(0.04, baseAlpha),
+      // Breath (subtle alpha pulse)
       breathPhase: Math.random() * Math.PI * 2,
-      breathSpeed: Math.random() * 0.015 + 0.005,
-      // Layer for connection distance thresholds
-      layer: layer,
-      // Repulsion offset accumulator (cleared each frame)
-      rx: 0, ry: 0,
+      breathSpeed: Math.random() * 0.018 + 0.006,
+      layer,
     });
   }
 }
 
-// Expose for theme switching
-function createTelemetry() {
-  // Telemetry text removed in the new clean design — no-op
-}
+// no-op: kept for theme-switch compat
+function createTelemetry() {}
 
 function startLoginCanvasAnimation() {
   const canvas = document.getElementById('login-canvas');
@@ -1522,127 +1515,81 @@ function startLoginCanvasAnimation() {
 
   const isLight = () => (document.documentElement.getAttribute('data-theme') || 'light') === 'light';
 
-  // Connection distance threshold per layer combination
-  const connDist = 130;
+  const REPEL_RADIUS = 130;
+  const REPEL_FORCE  = 1.4;
 
   function draw() {
     const w = canvas.width;
     const h = canvas.height;
     const light = isLight();
 
-    // Clear to solid white (or dark for dark theme)
+    // Solid white (or dark) background — no trail
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = light ? '#ffffff' : '#05080e';
     ctx.fillRect(0, 0, w, h);
 
-    orbitAngle += 0.00015; // extremely slow global rotation
-
     const mx = mousePos.x;
     const my = mousePos.y;
     const mouseActive = mx > -1000 && !isTouchDevice;
-    const REPEL_RADIUS = 120;
-    const REPEL_FORCE  = 0.55;
 
-    // --- Update particles ---
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
 
-      // Orbital movement: rotate orbit angle slowly
-      p.orbitAngle += p.orbitSpeed + orbitAngle * 0.08;
-      const cx = w / 2;
-      const cy = h / 2;
+      // ── 1. Self-rotation (each ring spins on its own axis) ──
+      p.rotation += p.rotSpeed;
 
-      // Target position from orbital
-      const tx = cx + Math.cos(p.orbitAngle) * p.orbitDist;
-      const ty = cy + Math.sin(p.orbitAngle) * p.orbitDist;
-
-      // Drift toward orbital target with gentle force (smooth interpolation)
-      p.vx += (tx - p.x) * 0.00008;
-      p.vy += (ty - p.y) * 0.00008;
-
-      // Brownian noise
-      p.vx += (Math.random() - 0.5) * 0.008;
-      p.vy += (Math.random() - 0.5) * 0.008;
-
-      // Dampen velocity
-      p.vx *= 0.985;
-      p.vy *= 0.985;
-
+      // ── 2. Drift ──
       p.x += p.vx;
       p.y += p.vy;
 
-      // Soft boundary wrap
-      if (p.x < -40) p.x = w + 40;
-      else if (p.x > w + 40) p.x = -40;
-      if (p.y < -40) p.y = h + 40;
-      else if (p.y > h + 40) p.y = -40;
+      // Soft wrap (rings disappear off one edge, re-enter the other)
+      if (p.x < -20) p.x = w + 20;
+      else if (p.x > w + 20) p.x = -20;
+      if (p.y < -20) p.y = h + 20;
+      else if (p.y > h + 20) p.y = -20;
 
-      // Mouse repulsion (only on desktop)
-      p.rx = 0; p.ry = 0;
+      // ── 3. Mouse repulsion — push rings away from cursor ──
       if (mouseActive) {
         const dxm = p.x - mx;
         const dym = p.y - my;
         const dm  = Math.sqrt(dxm * dxm + dym * dym);
-        if (dm < REPEL_RADIUS && dm > 0) {
-          const force = (1 - dm / REPEL_RADIUS) * REPEL_FORCE;
-          p.rx = (dxm / dm) * force;
-          p.ry = (dym / dm) * force;
-          p.x += p.rx * 1.6;
-          p.y += p.ry * 1.6;
+        if (dm < REPEL_RADIUS && dm > 0.5) {
+          const norm  = (1 - dm / REPEL_RADIUS);   // 0→1 as cursor approaches
+          const force = norm * norm * REPEL_FORCE;  // quadratic falloff = smooth
+          // Apply directly to position (immediate, smooth)
+          p.x += (dxm / dm) * force;
+          p.y += (dym / dm) * force;
+          // Also speed up rotation near cursor
+          p.rotation += p.rotSpeed * norm * 4;
         }
       }
 
-      // Breath / pulse
+      // ── 4. Breath alpha ──
       p.breathPhase += p.breathSpeed;
-      const breathAlpha = p.baseAlpha * (0.78 + 0.22 * Math.sin(p.breathPhase));
-    }
+      const breathAlpha = p.baseAlpha * (0.75 + 0.25 * Math.sin(p.breathPhase));
 
-    // --- Draw connection lines (layer >= 1 particles) ---
-    ctx.save();
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      if (p.layer < 1) continue;
-      for (let j = i + 1; j < particles.length; j++) {
-        const q = particles[j];
-        if (q.layer < 1) continue;
-        const dx = p.x - q.x;
-        const dy = p.y - q.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const threshold = connDist * (p.layer === 2 && q.layer === 2 ? 1.2 : 1.0);
-        if (dist < threshold) {
-          const proximity = 1 - dist / threshold;
-          const lineAlpha = proximity * proximity * (light ? 0.10 : 0.18);
-          ctx.beginPath();
-          ctx.strokeStyle = light
-            ? `rgba(71, 85, 105, ${lineAlpha})`
-            : `rgba(56, 189, 248, ${lineAlpha})`;
-          ctx.lineWidth = 0.6;
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(q.x, q.y);
-          ctx.stroke();
-        }
-      }
-    }
-    ctx.restore();
+      // ── 5. Draw the ring/donut ──
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.scale(1, p.aspect);   // squish Y → ellipse, makes rotation visible
 
-    // --- Draw particles ---
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      const breathAlpha = p.baseAlpha * (0.78 + 0.22 * Math.sin(p.breathPhase));
       ctx.beginPath();
-      ctx.arc(p.x, p.y, Math.max(0.3, p.radius), 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.globalAlpha = Math.min(breathAlpha, 0.95);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+      ctx.arc(0, 0, p.outerR, 0, Math.PI * 2);
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = p.strokeW;
+      ctx.globalAlpha = Math.min(breathAlpha, 0.92);
+      ctx.stroke();
 
+      ctx.restore();
+    }
+
+    ctx.globalAlpha = 1;
     canvasAnimId = requestAnimationFrame(draw);
   }
 
   draw();
 }
-
 
 function stopLoginCanvasAnimation() {
   if (canvasAnimId) {
