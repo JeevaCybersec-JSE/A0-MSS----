@@ -6,27 +6,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>A0 MSS KPI Dashboard</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css?v=4.0">
+  <link rel="stylesheet" href="style.css?v=5.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
 
-  <!-- Dynamic Cyber Cursor Follower -->
+  <!-- Dynamic Cursor Follower (minimal, enterprise) -->
   <div id="cursor-glow" class="cursor-glow-aura"></div>
   <div id="cursor-dot" class="cursor-glow-dot"></div>
 
   <!-- ===================== LOGIN SCREEN ===================== -->
   <div id="login-screen" class="login-screen">
+    <!-- Antigravity-style interactive particle canvas — white background -->
     <canvas id="login-canvas" class="login-canvas"></canvas>
-    <div class="login-scanlines"></div>
-    <div class="login-radar-sweep"></div>
-    <div class="login-glow-orb orb-1"></div>
-    <div class="login-glow-orb orb-2"></div>
-    <div class="login-glow-orb orb-3"></div>
-    <div class="login-glow-orb orb-4"></div>
-    <div class="login-grid"></div>
 
-    <!-- Futuristic Ambient SOC Telemetry HUD in Viewport Corners -->
+    <!-- Minimal monospace system telemetry in corners -->
     <div class="login-hud-corner hud-tl">
       <div class="hud-line"><span class="hud-dot"></span> SYSTEM: <span class="hud-val">ONLINE [NODE #A0]</span></div>
       <div class="hud-line sub">PROTO: <span class="hud-val">TLS 1.3 / AES-256 GCM</span></div>
@@ -51,24 +48,19 @@
     </div>
     <div class="hud-corner-bracket bracket-br"></div>
 
+    <!-- Premium Enterprise Login Card -->
     <form id="login-form" class="login-card" autocomplete="off">
-      <div class="card-glow-border"></div>
 
-      <!-- Tech HUD Corners -->
-      <div class="tech-corner corner-tl"></div>
-      <div class="tech-corner corner-tr"></div>
-      <div class="tech-corner corner-bl"></div>
-      <div class="tech-corner corner-br"></div>
-
+      <!-- Status badge row -->
       <div class="login-badge-row">
         <span class="cyber-badge"><span class="live-dot"></span> SECURE SOC NODE #A0</span>
         <span class="cyber-badge secondary">AES-256 GCM</span>
       </div>
 
+      <!-- Shield Identity Mark -->
       <div class="login-mark">
         <div class="mark-pulse"></div>
-        <div class="mark-scan-ring"></div>
-        <svg viewBox="0 0 40 40" width="38" height="38" fill="none" stroke="currentColor" stroke-width="2.2">
+        <svg viewBox="0 0 40 40" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2">
           <path d="M20 4 L34 10 V19 C34 28 28 34 20 37 C12 34 6 28 6 19 V10 Z" stroke-linejoin="round" />
           <path d="M14 20 L18 24 L27 14" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
@@ -118,13 +110,6 @@
         </svg>
       </button>
 
-      <!-- Quick Demo Login Pill -->
-      <div class="quick-login-box">
-        <span class="quick-login-label">Quick Sign-in:</span>
-        <button type="button" id="quick-demo-login" class="quick-login-chip" title="Click to autofill Operator credentials">
-          <span class="chip-sparkle">⚡</span>
-          <span>Fill Demo Credentials (Jeeva)</span>
-        </button>
       </div>
 
       <div class="login-foot">
@@ -269,7 +254,7 @@
 
   <div id="toast" class="toast" hidden></div>
 
-  <script src="app.js?v=4.0"></script>
+  <script src="app.js?v=5.0"></script>
 </body>
 
 </html>

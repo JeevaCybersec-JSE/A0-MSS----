@@ -12,12 +12,23 @@
         },
         "mobile_devices": {
           "inputs": {
+            "mode": "vpn_mdm",
             "vpn": 95,
-            "mode": "vpn_only"
+            "mdm": 5
           },
-          "computed": 95,
+          "computed": 100,
           "rag": null,
           "history": [
+            {
+              "timestamp": "2026-09-17T11:30:10.773Z",
+              "action": "update",
+              "inputs": {
+                "vpn": 95,
+                "mode": "vpn_only"
+              },
+              "computed": 95,
+              "rag": null
+            },
             {
               "timestamp": "2026-09-17T11:19:40.627Z",
               "action": "update",
@@ -464,12 +475,23 @@
         },
         "mfa_coverage_pct": {
           "inputs": {
-            "num": 75,
+            "num": 88,
             "den": 75
           },
-          "computed": 100,
+          "computed": 117.33,
           "rag": "green",
-          "history": []
+          "history": [
+            {
+              "timestamp": "2026-09-17T12:07:22.934Z",
+              "action": "update",
+              "inputs": {
+                "num": 75,
+                "den": 75
+              },
+              "computed": 100,
+              "rag": "green"
+            }
+          ]
         },
         "risky_signins": {
           "inputs": {},

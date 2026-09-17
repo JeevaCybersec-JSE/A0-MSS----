@@ -1395,87 +1395,37 @@ function showToast(msg, kind) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
 }
 
-// ---------- Dynamic Login Canvas Animation (SOC Cyber Grid & Radar Engine) ----------
+// ---------- Antigravity-Style Particle Canvas (White BG, Orbital, Mouse-Reactive) ----------
 let canvasAnimId = null;
 let particles = [];
-let telemetryStreams = [];
-let shockwaves = [];
-let mousePos = { x: -1000, y: -1000 };
-let radarAngle = 0;
-let lastShockwaveTime = 0;
-
-const TELEMETRY_PHRASES = [
-  'NODE#A0::ONLINE',
-  'AES-256::VERIFIED',
-  '0x7F::AUTH_OK',
-  'PORT:443::SECURE',
-  'LATENCY::12ms',
-  'TLS_v1.3::ACTIVE',
-  'KEY_EXCHANGE::PASS',
-  'SOC_MSS::STREAM',
-  'SHA-512::INTEGRITY',
-  'PACKET_TRACE::VALID',
-  'NODE_SYNC::100%'
-];
+let mousePos = { x: -9999, y: -9999 };
+let isTouchDevice = false;
+let orbitAngle = 0; // global slow rotation offset
 
 function initLoginCanvas() {
   const canvas = document.getElementById('login-canvas');
   if (!canvas) return;
 
+  // Detect touch device
+  isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
   function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     createParticles();
-    createTelemetry();
   }
   window.addEventListener('resize', resize);
   resize();
 
+  // Mouse tracking (only on non-touch or hybrid)
   window.addEventListener('mousemove', (e) => {
     mousePos.x = e.clientX;
     mousePos.y = e.clientY;
-
-    const now = Date.now();
-    if (now - lastShockwaveTime > 350) {
-      const screen = document.getElementById('login-screen');
-      if (screen && !screen.hidden) {
-        shockwaves.push({
-          x: e.clientX,
-          y: e.clientY,
-          radius: 12,
-          maxRadius: 170,
-          speed: 2.8,
-          alpha: 0.35,
-          color: Math.random() > 0.5 ? '#23d6bb' : '#5c8bf5'
-        });
-        lastShockwaveTime = now;
-      }
-    }
   });
-
-  const loginScreen = document.getElementById('login-screen');
-  if (loginScreen) {
-    loginScreen.addEventListener('mousedown', (e) => {
-      shockwaves.push({
-        x: e.clientX,
-        y: e.clientY,
-        radius: 10,
-        maxRadius: 360,
-        speed: 5.2,
-        alpha: 0.8,
-        color: '#23d6bb'
-      });
-      shockwaves.push({
-        x: e.clientX,
-        y: e.clientY,
-        radius: 5,
-        maxRadius: 280,
-        speed: 4.0,
-        alpha: 0.6,
-        color: '#38bdf8'
-      });
-    });
-  }
+  window.addEventListener('mouseleave', () => {
+    mousePos.x = -9999;
+    mousePos.y = -9999;
+  });
 
   // Live HUD Latency variation ticker
   setInterval(() => {
@@ -1491,49 +1441,77 @@ function createParticles() {
   const canvas = document.getElementById('login-canvas');
   if (!canvas) return;
   const isLight = (document.documentElement.getAttribute('data-theme') || 'light') === 'light';
-  const count = Math.min(Math.floor((canvas.width * canvas.height) / 11000), 100);
+
+  // Density: more particles for a rich field, fewer on mobile
+  const isMobile = window.innerWidth < 768;
+  const baseDensity = isMobile ? 14000 : 8500;
+  const count = Math.min(Math.floor((canvas.width * canvas.height) / baseDensity), isMobile ? 80 : 200);
+
   particles = [];
   for (let i = 0; i < count; i++) {
-    const isHero = Math.random() > 0.75;
+    // Depth layer: 0=far (slow, small, faint), 1=mid, 2=near (faster, larger, more opaque)
+    const layer = Math.floor(Math.random() * 3);
+    const speedMult = [0.18, 0.36, 0.62][layer];
+    const sizeMult  = [0.5, 1.0, 1.6][layer];
+    const alphaMult = [0.25, 0.45, 0.7][layer];
+
+    // Orbital origin: random point distributed across canvas, with slight center-weighting
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const spread = Math.max(canvas.width, canvas.height) * 0.52;
+    const angle = Math.random() * Math.PI * 2;
+    const dist   = Math.random() * spread;
+    const baseX  = cx + Math.cos(angle) * dist;
+    const baseY  = cy + Math.sin(angle) * dist;
+
+    // Color palette: light = very subtle grays/near-blacks; dark = teal/cyan
     let col;
     if (isLight) {
-      col = Math.random() > 0.4 ? '#334155' : (Math.random() > 0.5 ? '#0284c7' : '#0f172a');
+      const tone = Math.random();
+      col = tone > 0.65 ? '#0f172a' :
+            tone > 0.35 ? '#475569' :
+                          '#94a3b8';
     } else {
-      col = Math.random() > 0.4 ? '#23d6bb' : (Math.random() > 0.5 ? '#5c8bf5' : '#38bdf8');
+      const tone = Math.random();
+      col = tone > 0.6 ? '#23d6bb' :
+            tone > 0.3 ? '#38bdf8' :
+                         '#64748b';
     }
+
+    const baseAlpha = isLight
+      ? (Math.random() * 0.18 + 0.06) * alphaMult
+      : (Math.random() * 0.35 + 0.15) * alphaMult;
+
     particles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      vx: (Math.random() - 0.5) * (isHero ? 0.85 : 0.45),
-      vy: (Math.random() - 0.5) * (isHero ? 0.85 : 0.45),
-      radius: isHero ? Math.random() * 2.4 + 1.8 : Math.random() * 1.5 + 0.8,
+      // Current position
+      x: baseX + (Math.random() - 0.5) * 30,
+      y: baseY + (Math.random() - 0.5) * 30,
+      // Orbital parameters
+      orbitAngle: angle,
+      orbitDist: dist,
+      orbitSpeed: (Math.random() - 0.5) * 0.0006 * speedMult, // very slow rotation
+      // Autonomous drift (tiny Brownian)
+      vx: (Math.random() - 0.5) * 0.12 * speedMult,
+      vy: (Math.random() - 0.5) * 0.12 * speedMult,
+      // Appearance
+      radius: (Math.random() * 1.2 + 0.4) * sizeMult,
       color: col,
-      alpha: isLight ? (Math.random() * 0.35 + 0.15) : (Math.random() * 0.5 + 0.3),
-      pulse: Math.random() * Math.PI * 2,
-      pulseSpeed: Math.random() * 0.04 + 0.02,
-      isHero: isHero
+      alpha: Math.max(0.03, baseAlpha),
+      baseAlpha: Math.max(0.03, baseAlpha),
+      // Subtle breath animation
+      breathPhase: Math.random() * Math.PI * 2,
+      breathSpeed: Math.random() * 0.015 + 0.005,
+      // Layer for connection distance thresholds
+      layer: layer,
+      // Repulsion offset accumulator (cleared each frame)
+      rx: 0, ry: 0,
     });
   }
 }
 
+// Expose for theme switching
 function createTelemetry() {
-  const canvas = document.getElementById('login-canvas');
-  if (!canvas) return;
-  const isLight = (document.documentElement.getAttribute('data-theme') || 'light') === 'light';
-  telemetryStreams = [];
-  const streamCount = Math.min(Math.floor(canvas.width / 130), 14);
-  for (let i = 0; i < streamCount; i++) {
-    const col = isLight ? (Math.random() > 0.4 ? '#475569' : '#0284c7') : (Math.random() > 0.4 ? '#23d6bb' : '#38bdf8');
-    telemetryStreams.push({
-      x: (i + 0.5) * (canvas.width / streamCount) + (Math.random() - 0.5) * 40,
-      y: Math.random() * canvas.height,
-      text: TELEMETRY_PHRASES[Math.floor(Math.random() * TELEMETRY_PHRASES.length)],
-      vy: -(Math.random() * 0.45 + 0.25),
-      alpha: isLight ? (Math.random() * 0.25 + 0.08) : (Math.random() * 0.35 + 0.12),
-      fontSize: Math.floor(Math.random() * 2) + 10,
-      color: col
-    });
-  }
+  // Telemetry text removed in the new clean design — no-op
 }
 
 function startLoginCanvasAnimation() {
@@ -1542,157 +1520,129 @@ function startLoginCanvasAnimation() {
   const ctx = canvas.getContext('2d');
   if (canvasAnimId) cancelAnimationFrame(canvasAnimId);
 
+  const isLight = () => (document.documentElement.getAttribute('data-theme') || 'light') === 'light';
+
+  // Connection distance threshold per layer combination
+  const connDist = 130;
+
   function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const w = canvas.width;
+    const h = canvas.height;
+    const light = isLight();
 
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+    // Clear to solid white (or dark for dark theme)
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = light ? '#ffffff' : '#05080e';
+    ctx.fillRect(0, 0, w, h);
 
-    // 1. Concentric Holographic Range Rings
-    ctx.save();
-    ctx.strokeStyle = 'rgba(35, 214, 187, 0.055)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 12]);
-    const maxR = Math.max(canvas.width, canvas.height) * 0.65;
-    for (let r = 180; r < maxR; r += 160) {
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    // Crosshair axes
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.035)';
-    ctx.beginPath();
-    ctx.moveTo(0, centerY); ctx.lineTo(canvas.width, centerY);
-    ctx.moveTo(centerX, 0); ctx.lineTo(centerX, canvas.height);
-    ctx.stroke();
-    ctx.restore();
+    orbitAngle += 0.00015; // extremely slow global rotation
 
-    // 2. Animated Radar Sweep Beam on Canvas
-    radarAngle += 0.009;
-    if (radarAngle > Math.PI * 2) radarAngle = 0;
-    const sweepLen = Math.max(canvas.width, canvas.height);
-    const sweepEndX = centerX + Math.cos(radarAngle) * sweepLen;
-    const sweepEndY = centerY + Math.sin(radarAngle) * sweepLen;
-    
-    ctx.save();
-    const sweepGrad = ctx.createLinearGradient(centerX, centerY, sweepEndX, sweepEndY);
-    sweepGrad.addColorStop(0, 'rgba(35, 214, 187, 0.25)');
-    sweepGrad.addColorStop(0.7, 'rgba(56, 189, 248, 0.12)');
-    sweepGrad.addColorStop(1, 'rgba(35, 214, 187, 0)');
-    ctx.strokeStyle = sweepGrad;
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(sweepEndX, sweepEndY);
-    ctx.stroke();
-    ctx.restore();
+    const mx = mousePos.x;
+    const my = mousePos.y;
+    const mouseActive = mx > -1000 && !isTouchDevice;
+    const REPEL_RADIUS = 120;
+    const REPEL_FORCE  = 0.55;
 
-    // 3. Floating Telemetry Stream Packets
-    ctx.save();
-    for (let s of telemetryStreams) {
-      s.y += s.vy;
-      if (s.y < -30) {
-        s.y = canvas.height + 20;
-        s.x = Math.random() * canvas.width;
-        s.text = TELEMETRY_PHRASES[Math.floor(Math.random() * TELEMETRY_PHRASES.length)];
-        s.alpha = Math.random() * 0.35 + 0.12;
-      }
-      ctx.font = `600 ${s.fontSize}px 'JetBrains Mono', Consolas, monospace`;
-      ctx.fillStyle = s.color;
-      ctx.globalAlpha = s.alpha;
-      ctx.fillText(s.text, s.x, s.y);
-    }
-    ctx.restore();
-
-    // 4. Interactive Shockwaves
-    for (let i = shockwaves.length - 1; i >= 0; i--) {
-      const sw = shockwaves[i];
-      sw.radius += sw.speed;
-      sw.alpha -= 0.012;
-      if (sw.radius >= sw.maxRadius || sw.alpha <= 0) {
-        shockwaves.splice(i, 1);
-        continue;
-      }
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
-      ctx.strokeStyle = sw.color;
-      ctx.globalAlpha = Math.max(0, sw.alpha);
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 14;
-      ctx.shadowColor = sw.color;
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // 5. Constellation Nodes & Connected Network
+    // --- Update particles ---
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
+
+      // Orbital movement: rotate orbit angle slowly
+      p.orbitAngle += p.orbitSpeed + orbitAngle * 0.08;
+      const cx = w / 2;
+      const cy = h / 2;
+
+      // Target position from orbital
+      const tx = cx + Math.cos(p.orbitAngle) * p.orbitDist;
+      const ty = cy + Math.sin(p.orbitAngle) * p.orbitDist;
+
+      // Drift toward orbital target with gentle force (smooth interpolation)
+      p.vx += (tx - p.x) * 0.00008;
+      p.vy += (ty - p.y) * 0.00008;
+
+      // Brownian noise
+      p.vx += (Math.random() - 0.5) * 0.008;
+      p.vy += (Math.random() - 0.5) * 0.008;
+
+      // Dampen velocity
+      p.vx *= 0.985;
+      p.vy *= 0.985;
+
       p.x += p.vx;
       p.y += p.vy;
-      p.pulse += p.pulseSpeed;
 
-      if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
-      if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+      // Soft boundary wrap
+      if (p.x < -40) p.x = w + 40;
+      else if (p.x > w + 40) p.x = -40;
+      if (p.y < -40) p.y = h + 40;
+      else if (p.y > h + 40) p.y = -40;
 
-      // Mouse repulsion & electric interaction
-      const dxm = p.x - mousePos.x;
-      const dym = p.y - mousePos.y;
-      const distMouse = Math.sqrt(dxm * dxm + dym * dym);
-      if (distMouse < 140) {
-        const force = (1 - distMouse / 140) * 1.5;
-        p.x += (dxm / distMouse) * force;
-        p.y += (dym / distMouse) * force;
-
-        ctx.beginPath();
-        ctx.strokeStyle = `rgba(35, 214, 187, ${(1 - distMouse / 140) * 0.55})`;
-        ctx.lineWidth = 1.2;
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(mousePos.x, mousePos.y);
-        ctx.stroke();
+      // Mouse repulsion (only on desktop)
+      p.rx = 0; p.ry = 0;
+      if (mouseActive) {
+        const dxm = p.x - mx;
+        const dym = p.y - my;
+        const dm  = Math.sqrt(dxm * dxm + dym * dym);
+        if (dm < REPEL_RADIUS && dm > 0) {
+          const force = (1 - dm / REPEL_RADIUS) * REPEL_FORCE;
+          p.rx = (dxm / dm) * force;
+          p.ry = (dym / dm) * force;
+          p.x += p.rx * 1.6;
+          p.y += p.ry * 1.6;
+        }
       }
 
-      // Check if radar sweep just passed over particle: trigger blip
-      const angleToP = Math.atan2(p.y - centerY, p.x - centerX);
-      let angleDiff = Math.abs(angleToP - (radarAngle % (Math.PI * 2)));
-      if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-      const isBlip = angleDiff < 0.08;
+      // Breath / pulse
+      p.breathPhase += p.breathSpeed;
+      const breathAlpha = p.baseAlpha * (0.78 + 0.22 * Math.sin(p.breathPhase));
+    }
 
-      // Draw particle
-      const currentRadius = p.radius + Math.sin(p.pulse) * 0.6;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, Math.max(0.5, currentRadius), 0, Math.PI * 2);
-      ctx.fillStyle = isBlip ? '#ffffff' : p.color;
-      ctx.shadowBlur = isBlip ? 18 : (p.isHero ? 12 : 5);
-      ctx.shadowColor = isBlip ? '#5effe8' : p.color;
-      ctx.globalAlpha = isBlip ? 1 : p.alpha;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
-
-      // Inter-particle links
+    // --- Draw connection lines (layer >= 1 particles) ---
+    ctx.save();
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      if (p.layer < 1) continue;
       for (let j = i + 1; j < particles.length; j++) {
-        const p2 = particles[j];
-        const dx = p.x - p2.x;
-        const dy = p.y - p2.y;
+        const q = particles[j];
+        if (q.layer < 1) continue;
+        const dx = p.x - q.x;
+        const dy = p.y - q.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 115) {
-          const linkAlpha = (1 - dist / 115) * 0.28;
+        const threshold = connDist * (p.layer === 2 && q.layer === 2 ? 1.2 : 1.0);
+        if (dist < threshold) {
+          const proximity = 1 - dist / threshold;
+          const lineAlpha = proximity * proximity * (light ? 0.10 : 0.18);
           ctx.beginPath();
-          ctx.strokeStyle = `rgba(56, 189, 248, ${linkAlpha})`;
-          ctx.lineWidth = 0.8;
+          ctx.strokeStyle = light
+            ? `rgba(71, 85, 105, ${lineAlpha})`
+            : `rgba(56, 189, 248, ${lineAlpha})`;
+          ctx.lineWidth = 0.6;
           ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p2.x, p2.y);
+          ctx.lineTo(q.x, q.y);
           ctx.stroke();
         }
       }
     }
+    ctx.restore();
+
+    // --- Draw particles ---
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      const breathAlpha = p.baseAlpha * (0.78 + 0.22 * Math.sin(p.breathPhase));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, Math.max(0.3, p.radius), 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.min(breathAlpha, 0.95);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
 
     canvasAnimId = requestAnimationFrame(draw);
   }
 
   draw();
 }
+
 
 function stopLoginCanvasAnimation() {
   if (canvasAnimId) {
