@@ -1395,208 +1395,200 @@ function showToast(msg, kind) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
 }
 
-// ---------- Antigravity Ring/Donut Particle Canvas ----------
-// Particles = small elliptical rings (circle with hole) each spinning on own axis
-// White BG, slow drift, per-particle rotation, mouse repulsion
-let canvasAnimId = null;
-let particles = [];
-let mousePos = { x: -9999, y: -9999 };
-let isTouchDevice = false;
+// ============================================================
+// CSS DIV-BASED RING PARTICLE SYSTEM (No Canvas — No Cache Issues)
+// Each ring = a <div> with border-radius:50% + border (donut)
+// CSS @keyframes handle rotation + floating
+// JS handles mouse spotlight + repulsion via CSS custom props
+// ============================================================
+let _ringEls  = [];     // array of div elements
+let _isTouchDevice = false;
+let _mouseX = -9999;
+let _mouseY = -9999;
+let _spotlightEl = null;
+let _repulsionRaf = null;
 
-function initLoginCanvas() {
-  const canvas = document.getElementById('login-canvas');
-  if (!canvas) return;
+function initLoginCanvas() {                         // called by existing app bootstrap
+  const bg = document.getElementById('login-bg');
+  if (!bg) return;
 
-  isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  _spotlightEl = document.getElementById('login-spotlight');
 
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    createParticles();
+  _buildRings(bg);
+
+  if (!_isTouchDevice) {
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) {
+      loginScreen.addEventListener('mousemove', _onMouseMove, { passive: true });
+      loginScreen.addEventListener('mouseleave', _onMouseLeave, { passive: true });
+    }
+    _repulsionLoop();
   }
-  window.addEventListener('resize', resize);
-  resize();
-
-  // Mouse tracking
-  window.addEventListener('mousemove', (e) => {
-    mousePos.x = e.clientX;
-    mousePos.y = e.clientY;
-  });
-  window.addEventListener('mouseleave', () => {
-    mousePos.x = -9999;
-    mousePos.y = -9999;
-  });
 
   // HUD latency ticker
   setInterval(() => {
-    const latEl = document.getElementById('login-hud-latency');
-    if (latEl) latEl.textContent = Math.floor(10 + Math.random() * 5) + 'ms';
+    const el = document.getElementById('login-hud-latency');
+    if (el) el.textContent = Math.floor(10 + Math.random() * 5) + 'ms';
   }, 2400);
+
+  // Rebuild on resize (debounced)
+  let _resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => _buildRings(bg), 220);
+  });
 }
 
-function createParticles() {
-  const canvas = document.getElementById('login-canvas');
-  if (!canvas) return;
-  const isLight = (document.documentElement.getAttribute('data-theme') || 'light') === 'light';
+function _buildRings(container) {
+  // Remove old rings
+  _ringEls.forEach(el => el.remove());
+  _ringEls = [];
 
+  const isDark = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark';
   const isMobile = window.innerWidth < 768;
-  // Enough rings to feel rich but not heavy
-  const count = isMobile ? 60 : 160;
+  const count = isMobile ? 55 : 140;
 
-  particles = [];
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+
   for (let i = 0; i < count; i++) {
-    // 3 depth layers: far=small/slow/faint, mid, near=large/fast/opaque
-    const layer = Math.floor(Math.random() * 3);
-    const layerScale  = [0.55, 1.0, 1.55][layer];
-    const speedScale  = [0.20, 0.42, 0.70][layer];
-    const alphaScale  = [0.22, 0.45, 0.72][layer];
+    // Depth layer
+    const layer  = Math.floor(Math.random() * 3);      // 0=far 1=mid 2=near
+    const sizeK  = [0.50, 1.00, 1.60][layer];
+    const alphaK = [0.12, 0.25, 0.50][layer];
+    const speedK = [1.60, 1.00, 0.65][layer];          // far=slow rot, near=fast
 
-    // Random position across full viewport
-    const x = Math.random() * canvas.width;
-    const y = Math.random() * canvas.height;
+    // Ring dimensions (px)
+    const diameter   = Math.round((Math.random() * 18 + 8) * sizeK);  // 4–45px
+    const borderW    = Math.max(1, Math.round(diameter * (Math.random() * 0.22 + 0.10)));
+    const squish     = (Math.random() * 0.50 + 0.22).toFixed(2);      // 0.22–0.72 Y-scale
 
-    // Ring size: outer radius (the ring's "outer edge")
-    // Aspect ratio < 1 makes it an ellipse — rotation becomes VISIBLE as alignment changes
-    const outerR = (Math.random() * 5 + 3) * layerScale;   // 3–13px outer radius
-    const aspect = Math.random() * 0.45 + 0.25;             // 0.25–0.70 squish (not perfect circle so rotation shows)
-    const strokeW = Math.max(1, outerR * (Math.random() * 0.35 + 0.18)); // ring wall thickness
+    // Position — scattered evenly across viewport with no cluster near center
+    const left = Math.random() * (W + 60) - 30;
+    const top  = Math.random() * (H + 60) - 30;
 
-    // Per-particle self-rotation speed (each ring spins at its own rate)
-    const rotSpeed = (Math.random() - 0.5) * 0.035 * speedScale; // ±0.035 rad/frame
-
-    // Color: B&W for light theme, teal/cyan for dark
-    let col;
-    if (isLight) {
-      const r = Math.random();
-      col = r > 0.72 ? '#0f172a' :   // near-black  (28%)
-            r > 0.42 ? '#334155' :   // dark slate  (30%)
-            r > 0.18 ? '#64748b' :   // mid slate   (24%)
-                       '#94a3b8';    // light slate (18%)
+    // Color
+    let color;
+    if (isDark) {
+      const t = Math.random();
+      color = t > 0.60 ? 'rgba(35,214,187,'   : t > 0.30 ? 'rgba(56,189,248,' : 'rgba(100,116,139,';
     } else {
-      const r = Math.random();
-      col = r > 0.60 ? '#23d6bb' :
-            r > 0.30 ? '#38bdf8' :
-                       '#64748b';
+      const t = Math.random();
+      color = t > 0.70 ? 'rgba(15,23,42,'     :
+              t > 0.42 ? 'rgba(51,65,85,'     :
+              t > 0.18 ? 'rgba(100,116,139,'  : 'rgba(148,163,184,';
     }
+    const alpha = ((Math.random() * 0.25 + 0.06) * alphaK).toFixed(3);
+    const borderColor = color + alpha + ')';
 
-    const baseAlpha = (Math.random() * 0.22 + 0.08) * alphaScale;
+    // Animation timings — each ring is unique
+    const rotDur   = (Math.random() * 18 + 6) * speedK;   // 6–45s per full spin
+    const floatDur = (Math.random() * 10 + 5).toFixed(1); // 5–15s float cycle
+    const delay    = -(Math.random() * rotDur).toFixed(1); // negative = already in motion
+    const tx       = Math.round((Math.random() - 0.5) * 40); // float drift X
+    const ty       = Math.round((Math.random() - 0.5) * 40); // float drift Y
 
-    particles.push({
-      x, y,
-      // Gentle constant drift
-      vx: (Math.random() - 0.5) * 0.30 * speedScale,
-      vy: (Math.random() - 0.5) * 0.30 * speedScale,
-      // Ring shape
-      outerR,
-      aspect,      // y-axis scale: creates ellipse so rotation is visible
-      strokeW,
-      // Self-rotation
-      rotation: Math.random() * Math.PI * 2, // starting angle
-      rotSpeed,                               // rad per frame (each ring different)
-      // Appearance
-      color: col,
-      baseAlpha: Math.max(0.04, baseAlpha),
-      // Breath (subtle alpha pulse)
-      breathPhase: Math.random() * Math.PI * 2,
-      breathSpeed: Math.random() * 0.018 + 0.006,
-      layer,
-    });
+    const div = document.createElement('div');
+    div.className = 'login-ring';
+    div.style.cssText = [
+      `width:${diameter}px`,
+      `height:${diameter}px`,
+      `border-width:${borderW}px`,
+      `border-color:${borderColor}`,
+      `left:${left}px`,
+      `top:${top}px`,
+      `--ring-rot-dur:${rotDur.toFixed(1)}s`,
+      `--ring-float-dur:${floatDur}s`,
+      `--ring-delay:${delay}s`,
+      `--ring-squish:${squish}`,
+      `--ring-tx:${tx}px`,
+      `--ring-ty:${ty}px`,
+    ].join(';');
+
+    // Store base position for repulsion math
+    div._baseLeft = left;
+    div._baseTop  = top;
+    div._cx       = left + diameter / 2;
+    div._cy       = top  + diameter / 2;
+    div._offX     = 0;
+    div._offY     = 0;
+
+    container.appendChild(div);
+    _ringEls.push(div);
   }
 }
 
-// no-op: kept for theme-switch compat
-function createTelemetry() {}
+function _onMouseMove(e) {
+  _mouseX = e.clientX;
+  _mouseY = e.clientY;
+
+  // Update spotlight CSS variable
+  if (_spotlightEl) {
+    _spotlightEl.style.background = `radial-gradient(
+      circle 340px at ${_mouseX}px ${_mouseY}px,
+      rgba(0,0,0,0.045) 0%,
+      transparent 70%
+    )`;
+  }
+}
+
+function _onMouseLeave() {
+  _mouseX = -9999;
+  _mouseY = -9999;
+  if (_spotlightEl) _spotlightEl.style.background = '';
+}
+
+const REPEL_R = 140;
+const REPEL_F = 55;     // max pixel push
+const EASE    = 0.12;   // lerp toward target each frame
+
+function _repulsionLoop() {
+  for (let i = 0; i < _ringEls.length; i++) {
+    const el = _ringEls[i];
+    const dx = el._cx - _mouseX;
+    const dy = el._cy - _mouseY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    let targetX = 0;
+    let targetY = 0;
+
+    if (_mouseX > -1000 && dist < REPEL_R && dist > 1) {
+      const norm  = (1 - dist / REPEL_R);
+      const force = norm * norm * REPEL_F;
+      targetX = (dx / dist) * force;
+      targetY = (dy / dist) * force;
+    }
+
+    // Smooth lerp toward target offset
+    el._offX += (targetX - el._offX) * EASE;
+    el._offY += (targetY - el._offY) * EASE;
+
+    if (Math.abs(el._offX) > 0.15 || Math.abs(el._offY) > 0.15) {
+      el.style.translate = `${el._offX.toFixed(1)}px ${el._offY.toFixed(1)}px`;
+    }
+  }
+  _repulsionRaf = requestAnimationFrame(_repulsionLoop);
+}
+
+// Called when user logs in — stop repulsion loop
+function createParticles()  {}   // no-op (compat)
+function createTelemetry()  {}   // no-op (compat)
 
 function startLoginCanvasAnimation() {
-  const canvas = document.getElementById('login-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  if (canvasAnimId) cancelAnimationFrame(canvasAnimId);
-
-  const isLight = () => (document.documentElement.getAttribute('data-theme') || 'light') === 'light';
-
-  const REPEL_RADIUS = 130;
-  const REPEL_FORCE  = 1.4;
-
-  function draw() {
-    const w = canvas.width;
-    const h = canvas.height;
-    const light = isLight();
-
-    // Solid white (or dark) background — no trail
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = light ? '#ffffff' : '#05080e';
-    ctx.fillRect(0, 0, w, h);
-
-    const mx = mousePos.x;
-    const my = mousePos.y;
-    const mouseActive = mx > -1000 && !isTouchDevice;
-
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-
-      // ── 1. Self-rotation (each ring spins on its own axis) ──
-      p.rotation += p.rotSpeed;
-
-      // ── 2. Drift ──
-      p.x += p.vx;
-      p.y += p.vy;
-
-      // Soft wrap (rings disappear off one edge, re-enter the other)
-      if (p.x < -20) p.x = w + 20;
-      else if (p.x > w + 20) p.x = -20;
-      if (p.y < -20) p.y = h + 20;
-      else if (p.y > h + 20) p.y = -20;
-
-      // ── 3. Mouse repulsion — push rings away from cursor ──
-      if (mouseActive) {
-        const dxm = p.x - mx;
-        const dym = p.y - my;
-        const dm  = Math.sqrt(dxm * dxm + dym * dym);
-        if (dm < REPEL_RADIUS && dm > 0.5) {
-          const norm  = (1 - dm / REPEL_RADIUS);   // 0→1 as cursor approaches
-          const force = norm * norm * REPEL_FORCE;  // quadratic falloff = smooth
-          // Apply directly to position (immediate, smooth)
-          p.x += (dxm / dm) * force;
-          p.y += (dym / dm) * force;
-          // Also speed up rotation near cursor
-          p.rotation += p.rotSpeed * norm * 4;
-        }
-      }
-
-      // ── 4. Breath alpha ──
-      p.breathPhase += p.breathSpeed;
-      const breathAlpha = p.baseAlpha * (0.75 + 0.25 * Math.sin(p.breathPhase));
-
-      // ── 5. Draw the ring/donut ──
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rotation);
-      ctx.scale(1, p.aspect);   // squish Y → ellipse, makes rotation visible
-
-      ctx.beginPath();
-      ctx.arc(0, 0, p.outerR, 0, Math.PI * 2);
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = p.strokeW;
-      ctx.globalAlpha = Math.min(breathAlpha, 0.92);
-      ctx.stroke();
-
-      ctx.restore();
-    }
-
-    ctx.globalAlpha = 1;
-    canvasAnimId = requestAnimationFrame(draw);
-  }
-
-  draw();
+  // Rings are already animating via CSS — nothing more to do
 }
 
 function stopLoginCanvasAnimation() {
-  if (canvasAnimId) {
-    cancelAnimationFrame(canvasAnimId);
-    canvasAnimId = null;
+  if (_repulsionRaf) {
+    cancelAnimationFrame(_repulsionRaf);
+    _repulsionRaf = null;
   }
 }
+
+
+
+
 
 // ---------- Dynamic Interactive Cursor Follower ----------
 function initCursorFollower() {
