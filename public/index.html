@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>A0 MSS KPI Dashboard</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="style.css?v=3.6">
+  <link rel="stylesheet" href="style.css?v=4.0">
 </head>
 
 <body>
@@ -245,6 +245,12 @@
             <span class="rag-dot"></span><span id="overall-pill-text">No data</span>
           </div>
 
+          <!-- Light / Dark Theme Switcher Button -->
+          <button id="theme-toggle-btn" class="btn btn-theme-toggle" title="Switch Theme (Light / Dark)">
+            <span class="theme-icon">☀️</span>
+            <span class="theme-mode-text">Light</span>
+          </button>
+
           <button id="topbar-logout-btn" class="btn btn-logout-topbar" title="Sign out of account">
             <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8">
               <path d="M7 16H4.5a1.5 1.5 0 01-1.5-1.5V5.5A1.5 1.5 0 014.5 4H7" stroke-linecap="round" />
@@ -263,7 +269,7 @@
 
   <div id="toast" class="toast" hidden></div>
 
-  <script src="app.js?v=3.6"></script>
+  <script src="app.js?v=4.0"></script>
 </body>
 
 </html>

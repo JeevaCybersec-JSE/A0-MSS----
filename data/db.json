@@ -12,11 +12,35 @@
         },
         "mobile_devices": {
           "inputs": {
-            "value": 55
+            "vpn": 95,
+            "mode": "vpn_only"
           },
-          "computed": 55,
+          "computed": 95,
           "rag": null,
-          "history": []
+          "history": [
+            {
+              "timestamp": "2026-09-17T11:19:40.627Z",
+              "action": "update",
+              "inputs": {
+                "vpn": 120,
+                "mdm": 45,
+                "mode": "vpn_mdm"
+              },
+              "computed": 165,
+              "rag": null
+            },
+            {
+              "timestamp": "2026-09-17T11:19:30.594Z",
+              "action": "update",
+              "inputs": {
+                "value": 55,
+                "mode": "vpn_only",
+                "vpn": 55
+              },
+              "computed": 55,
+              "rag": null
+            }
+          ]
         },
         "new_endpoints": {
           "inputs": {
@@ -136,18 +160,38 @@
         },
         "failed_patch_deployments": {
           "inputs": {
-            "value": 0
+            "value": 2
           },
-          "computed": 0,
-          "rag": "green"
+          "computed": 2,
+          "rag": "red",
+          "history": [
+            {
+              "timestamp": "2026-09-17T11:19:53.395Z",
+              "action": "update",
+              "inputs": {
+                "value": 0
+              },
+              "computed": 0,
+              "rag": "green"
+            }
+          ]
         },
         "successful_patch_deployments": {
           "inputs": {
-            "value": 55
+            "value": 98
           },
-          "computed": 55,
+          "computed": 98,
           "rag": null,
           "history": [
+            {
+              "timestamp": "2026-09-17T11:19:53.387Z",
+              "action": "update",
+              "inputs": {
+                "value": 55
+              },
+              "computed": 55,
+              "rag": null
+            },
             {
               "timestamp": "2026-09-16T12:22:49.305Z",
               "action": "clear",
@@ -427,125 +471,20 @@
           "rag": "green",
           "history": []
         },
-        "email_threats_quarantined": {
-          "inputs": {
-            "value": 89
-          },
-          "computed": 89,
-          "rag": null,
-          "history": []
+        "risky_signins": {
+          "inputs": {},
+          "computed": null,
+          "rag": null
         },
-        "phishing_blocked": {
-          "inputs": {
-            "value": 88
-          },
-          "computed": 88,
-          "rag": null,
-          "history": [
-            {
-              "timestamp": "2026-09-16T11:23:08.075Z",
-              "action": "clear",
-              "previousInputs": {
-                "value": 5
-              },
-              "previousComputed": 5,
-              "previousRAG": null
-            },
-            {
-              "timestamp": "2026-09-16T11:22:55.223Z",
-              "action": "clear",
-              "previousInputs": {
-                "value": 5
-              },
-              "previousComputed": 5,
-              "previousRAG": null
-            }
-          ]
+        "privileged_account_reviews": {
+          "inputs": {},
+          "computed": null,
+          "rag": null
         },
-        "user_reported_phishing": {
-          "inputs": {
-            "value": 89
-          },
-          "computed": 89,
-          "rag": null,
-          "history": [
-            {
-              "timestamp": "2026-09-16T11:22:58.808Z",
-              "action": "clear",
-              "previousInputs": {
-                "value": 55
-              },
-              "previousComputed": 55,
-              "previousRAG": null
-            },
-            {
-              "timestamp": "2026-09-16T11:22:38.716Z",
-              "action": "update",
-              "inputs": {
-                "value": 55
-              },
-              "computed": 55,
-              "rag": null
-            },
-            {
-              "timestamp": "2026-09-16T11:22:37.600Z",
-              "action": "update",
-              "inputs": {
-                "value": 55
-              },
-              "computed": 55,
-              "rag": null
-            },
-            {
-              "timestamp": "2026-09-16T11:22:33.838Z",
-              "action": "update",
-              "inputs": {
-                "value": 55
-              },
-              "computed": 55,
-              "rag": null
-            }
-          ]
-        },
-        "training_completion_pct": {
-          "inputs": {
-            "num": 8,
-            "den": 3
-          },
-          "computed": 266.67,
-          "rag": "green",
-          "history": [
-            {
-              "timestamp": "2026-09-17T04:56:42.317Z",
-              "action": "update",
-              "inputs": {
-                "num": 8,
-                "den": 14
-              },
-              "computed": 57.14,
-              "rag": "red"
-            },
-            {
-              "timestamp": "2026-09-17T04:56:36.391Z",
-              "action": "update",
-              "inputs": {
-                "num": 12,
-                "den": 14
-              },
-              "computed": 85.71,
-              "rag": "amber"
-            },
-            {
-              "timestamp": "2026-09-17T04:56:29.690Z",
-              "action": "update",
-              "inputs": {
-                "num": 12,
-                "den": 32
-              },
-              "computed": 37.5,
-              "rag": "red"
-            }
-          ]
+        "stale_accounts_disabled": {
+          "inputs": {},
+          "computed": null,
+          "rag": null
         },
         "support_requests": {
           "inputs": {
@@ -705,19 +644,39 @@
         },
         "security_recommendations_raised": {
           "inputs": {
-            "value": 68
+            "value": 10
           },
-          "computed": 68,
+          "computed": 10,
           "rag": null,
-          "history": []
+          "history": [
+            {
+              "timestamp": "2026-09-17T11:20:02.397Z",
+              "action": "update",
+              "inputs": {
+                "value": 68
+              },
+              "computed": 68,
+              "rag": null
+            }
+          ]
         },
         "recommendations_completed": {
           "inputs": {
-            "value": 96
+            "value": 8
           },
-          "computed": 96,
+          "computed": 8,
           "rag": null,
-          "history": []
+          "history": [
+            {
+              "timestamp": "2026-09-17T11:20:02.390Z",
+              "action": "update",
+              "inputs": {
+                "value": 96
+              },
+              "computed": 96,
+              "rag": null
+            }
+          ]
         },
         "policy_exceptions_open": {
           "inputs": {
@@ -729,12 +688,12 @@
         },
         "patch_deployment_success_rate_pct": {
           "inputs": {},
-          "computed": 100,
+          "computed": 98,
           "rag": "green"
         },
         "recommendations_completion_pct": {
           "inputs": {},
-          "computed": 141.18,
+          "computed": 80,
           "rag": "green"
         }
       },
@@ -756,7 +715,9 @@
         },
         "mobile_devices": {
           "inputs": {
-            "value": 48
+            "value": 48,
+            "mode": "vpn_only",
+            "vpn": 48
           },
           "computed": 48,
           "rag": null
@@ -940,26 +901,6 @@
           "computed": 100,
           "rag": "green"
         },
-        "email_threats_quarantined": {
-          "inputs": {},
-          "computed": null,
-          "rag": null
-        },
-        "phishing_blocked": {
-          "inputs": {},
-          "computed": null,
-          "rag": null
-        },
-        "user_reported_phishing": {
-          "inputs": {},
-          "computed": null,
-          "rag": null
-        },
-        "training_completion_pct": {
-          "inputs": {},
-          "computed": null,
-          "rag": null
-        },
         "support_requests": {
           "inputs": {},
           "computed": null,
@@ -1064,7 +1005,9 @@
         },
         "mobile_devices": {
           "inputs": {
-            "value": 50
+            "value": 50,
+            "mode": "vpn_only",
+            "vpn": 50
           },
           "computed": 50,
           "rag": null
@@ -1247,26 +1190,6 @@
           },
           "computed": 100,
           "rag": "green"
-        },
-        "email_threats_quarantined": {
-          "inputs": {},
-          "computed": null,
-          "rag": null
-        },
-        "phishing_blocked": {
-          "inputs": {},
-          "computed": null,
-          "rag": null
-        },
-        "user_reported_phishing": {
-          "inputs": {},
-          "computed": null,
-          "rag": null
-        },
-        "training_completion_pct": {
-          "inputs": {},
-          "computed": null,
-          "rag": null
         },
         "support_requests": {
           "inputs": {},

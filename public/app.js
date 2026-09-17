@@ -80,6 +80,7 @@ boot();
 
 async function boot() {
   document.getElementById('month-input').value = state.month;
+  initTheme();
   initLoginCanvas();
   initCursorFollower();
   initLoginTilt();
@@ -90,6 +91,42 @@ async function boot() {
     try { await initApp(); return; } catch (e) { /* fall through to login */ }
   }
   showLogin();
+}
+
+// ---------- Theme Management (White & Black Light Theme Default) ----------
+function initTheme() {
+  const saved = localStorage.getItem('mss_theme') || 'light';
+  applyTheme(saved);
+  const themeBtn = document.getElementById('theme-toggle-btn');
+  if (themeBtn) {
+    themeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const cur = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = cur === 'light' ? 'dark' : 'light';
+      applyTheme(next);
+    });
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('mss_theme', theme);
+  const themeBtn = document.getElementById('theme-toggle-btn');
+  if (themeBtn) {
+    const icon = themeBtn.querySelector('.theme-icon');
+    const label = themeBtn.querySelector('.theme-mode-text');
+    if (theme === 'dark') {
+      if (icon) icon.textContent = '🌙';
+      if (label) label.textContent = 'Dark';
+      themeBtn.title = 'Switch to Light theme (White & Black)';
+    } else {
+      if (icon) icon.textContent = '☀️';
+      if (label) label.textContent = 'Light';
+      themeBtn.title = 'Switch to Dark theme';
+    }
+  }
+  if (typeof createParticles === 'function') createParticles();
+  if (typeof createTelemetry === 'function') createTelemetry();
 }
 
 // ---------- Sidebar Toggle ("A0" Brand Button) ----------
@@ -469,7 +506,7 @@ function renderOverview() {
     <div class="overview-exec-head">
       <div style="display:flex; align-items:center; gap:10px;">
         <span class="overview-exec-badge">EXECUTIVE BRIEFING</span>
-        <span style="font-size:14px; font-weight:700; color:#ffffff;">Summary for ${state.month}</span>
+        <span style="font-size:14px; font-weight:700; color:var(--text);">Summary for ${state.month}</span>
         ${hasNar ? '<span class="mini-pill green">SAVED & ACTIVE</span>' : '<span class="mini-pill trend">NOT RECORDED YET</span>'}
       </div>
       <button id="btn-view-exec-overview" class="btn btn-sm btn-primary">
@@ -777,9 +814,20 @@ function renderMetricCard(metric) {
   valueBlock.className = 'metric-value-block';
   const valStr = fmtVal(entry.computed, metric.unit);
   const badge = metric.direction === 'trend' ? 'trend' : (rag || null);
+  let mobileBreakdown = '';
+  if (metric.mode === 'mobile_device' && entry.inputs) {
+    if (entry.inputs.mode === 'vpn_mdm') {
+      const v = entry.inputs.vpn !== undefined && entry.inputs.vpn !== null ? entry.inputs.vpn : 0;
+      const m = entry.inputs.mdm !== undefined && entry.inputs.mdm !== null ? entry.inputs.mdm : 0;
+      mobileBreakdown = `<div class="metric-breakdown-tag" title="Combined VPN + MDM total"><span class="tag-pill">VPN: ${v}</span><span class="tag-sep">+</span><span class="tag-pill">MDM: ${m}</span></div>`;
+    } else if (entry.inputs.vpn !== undefined && entry.inputs.vpn !== null && entry.inputs.vpn !== '') {
+      mobileBreakdown = `<div class="metric-breakdown-tag" title="VPN only tracking"><span class="tag-pill">VPN Only: ${entry.inputs.vpn}</span></div>`;
+    }
+  }
   valueBlock.innerHTML = `
     <div class="metric-value ${badge || ''}">${valStr !== null ? valStr : '<span class="metric-value-empty">—</span>'}</div>
     ${badge ? `<div class="metric-badge ${badge}">${badge === 'trend' ? 'TREND' : badge.toUpperCase()}</div>` : ''}
+    ${mobileBreakdown}
   `;
   body.appendChild(valueBlock);
 
@@ -791,6 +839,69 @@ function renderMetricCard(metric) {
 
   if (metric.mode === 'direct') {
     inputsBlock.appendChild(miniField('value', 'Value', entry.inputs && entry.inputs.value));
+  } else if (metric.mode === 'mobile_device') {
+    const curMode = (entry.inputs && entry.inputs.mode) || (entry.inputs && entry.inputs.mdm !== undefined && entry.inputs.mdm !== null ? 'vpn_mdm' : 'vpn_only');
+    const mobileWrap = document.createElement('div');
+    mobileWrap.className = 'mobile-scope-wrap';
+
+    const selectorRow = document.createElement('div');
+    selectorRow.className = 'mobile-scope-selector';
+    selectorRow.innerHTML = `
+      <div class="scope-question-label">Enrollment Scope:</div>
+      <div class="scope-btn-group">
+        <button type="button" class="btn-scope ${curMode === 'vpn_only' ? 'active' : ''}" data-scope="vpn_only" title="Track VPN enrolled devices only">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6V4a4 4 0 018 0v2M3 6h10v8H3z"/></svg>
+          <span>VPN Only</span>
+        </button>
+        <button type="button" class="btn-scope ${curMode === 'vpn_mdm' ? 'active' : ''}" data-scope="vpn_mdm" title="Track both VPN & MDM enrolled devices">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1zM7 11h2"/></svg>
+          <span>VPN + MDM</span>
+        </button>
+      </div>
+    `;
+
+    const dynamicFields = document.createElement('div');
+    dynamicFields.className = 'mobile-scope-fields';
+
+    function buildFields(mode) {
+      dynamicFields.innerHTML = '';
+      const vpnVal = entry.inputs ? (entry.inputs.vpn !== undefined ? entry.inputs.vpn : entry.inputs.value) : '';
+      const vpnField = miniField('vpn', 'VPN Enrolled', vpnVal);
+      dynamicFields.appendChild(vpnField);
+
+      if (mode === 'vpn_mdm') {
+        const mdmVal = entry.inputs ? entry.inputs.mdm : '';
+        const mdmField = miniField('mdm', 'MDM Enrolled', mdmVal);
+        dynamicFields.appendChild(mdmField);
+
+        const sumBadge = document.createElement('div');
+        sumBadge.className = 'mobile-sum-badge';
+        function recalculate() {
+          const v = parseFloat(vpnField.querySelector('input').value) || 0;
+          const m = parseFloat(mdmField.querySelector('input').value) || 0;
+          sumBadge.innerHTML = `<span class="sum-text">Total:</span> <strong>${v + m}</strong> <span class="sum-details">(${v} VPN + ${m} MDM)</span>`;
+        }
+        vpnField.querySelector('input').addEventListener('input', recalculate);
+        mdmField.querySelector('input').addEventListener('input', recalculate);
+        recalculate();
+        dynamicFields.appendChild(sumBadge);
+      }
+    }
+
+    buildFields(curMode);
+
+    selectorRow.querySelectorAll('.btn-scope').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.preventDefault();
+        selectorRow.querySelectorAll('.btn-scope').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        buildFields(b.dataset.scope);
+      });
+    });
+
+    mobileWrap.appendChild(selectorRow);
+    mobileWrap.appendChild(dynamicFields);
+    inputsBlock.appendChild(mobileWrap);
   } else if (metric.mode === 'ratio') {
     inputsBlock.appendChild(miniField('num', metric.numLabel, entry.inputs && entry.inputs.num));
     inputsBlock.appendChild(miniField('den', metric.denLabel, entry.inputs && entry.inputs.den));
@@ -851,7 +962,17 @@ function renderMetricCard(metric) {
     historyList.forEach((h, idx) => {
       const dateStr = new Date(h.timestamp).toLocaleString();
       const valDisplay = h.computed !== undefined && h.computed !== null ? fmtVal(h.computed, metric.unit) : '(Cleared)';
-      const inputsStr = Object.entries(h.inputs || h.previousInputs || {}).map(([k, v]) => `${k}:${v}`).join(', ');
+      let inputsStr = '';
+      const rawInp = h.inputs || h.previousInputs || {};
+      if (metric.mode === 'mobile_device') {
+        if (rawInp.mode === 'vpn_mdm') {
+          inputsStr = `VPN: ${rawInp.vpn !== undefined ? rawInp.vpn : 0}, MDM: ${rawInp.mdm !== undefined ? rawInp.mdm : 0} [Scope: VPN+MDM]`;
+        } else {
+          inputsStr = `VPN: ${rawInp.vpn !== undefined ? rawInp.vpn : (rawInp.value !== undefined ? rawInp.value : 0)} [Scope: VPN Only]`;
+        }
+      } else {
+        inputsStr = Object.entries(rawInp).map(([k, v]) => `${k}:${v}`).join(', ');
+      }
       const actBadge = h.action === 'clear' ? '<span class="mini-pill red" style="font-size:10px; padding:1px 5px;">CLEAR</span>' : '<span class="mini-pill green" style="font-size:10px; padding:1px 5px;">SAVED</span>';
 
       itemsHtml += `
@@ -968,9 +1089,21 @@ function miniField(key, label, value) {
 
 async function saveMetric(metric, cardEl) {
   const inputs = {};
-  cardEl.querySelectorAll('.mini-field input').forEach(inp => {
-    inputs[inp.dataset.key] = inp.value === '' ? null : Number(inp.value);
-  });
+  if (metric.mode === 'mobile_device') {
+    const activeScope = cardEl.querySelector('.btn-scope.active');
+    const scope = activeScope ? activeScope.dataset.scope : 'vpn_only';
+    inputs.mode = scope;
+    const vpnInp = cardEl.querySelector('input[data-key="vpn"]');
+    inputs.vpn = vpnInp && vpnInp.value !== '' ? Number(vpnInp.value) : null;
+    if (scope === 'vpn_mdm') {
+      const mdmInp = cardEl.querySelector('input[data-key="mdm"]');
+      inputs.mdm = mdmInp && mdmInp.value !== '' ? Number(mdmInp.value) : null;
+    }
+  } else {
+    cardEl.querySelectorAll('.mini-field input').forEach(inp => {
+      inputs[inp.dataset.key] = inp.value === '' ? null : Number(inp.value);
+    });
+  }
   const saveBtn = cardEl.querySelector('.metric-save');
   saveBtn.textContent = 'Saving…';
   saveBtn.disabled = true;
@@ -1357,18 +1490,25 @@ function initLoginCanvas() {
 function createParticles() {
   const canvas = document.getElementById('login-canvas');
   if (!canvas) return;
+  const isLight = (document.documentElement.getAttribute('data-theme') || 'light') === 'light';
   const count = Math.min(Math.floor((canvas.width * canvas.height) / 11000), 100);
   particles = [];
   for (let i = 0; i < count; i++) {
     const isHero = Math.random() > 0.75;
+    let col;
+    if (isLight) {
+      col = Math.random() > 0.4 ? '#334155' : (Math.random() > 0.5 ? '#0284c7' : '#0f172a');
+    } else {
+      col = Math.random() > 0.4 ? '#23d6bb' : (Math.random() > 0.5 ? '#5c8bf5' : '#38bdf8');
+    }
     particles.push({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
       vx: (Math.random() - 0.5) * (isHero ? 0.85 : 0.45),
       vy: (Math.random() - 0.5) * (isHero ? 0.85 : 0.45),
       radius: isHero ? Math.random() * 2.4 + 1.8 : Math.random() * 1.5 + 0.8,
-      color: Math.random() > 0.4 ? '#23d6bb' : (Math.random() > 0.5 ? '#5c8bf5' : '#38bdf8'),
-      alpha: Math.random() * 0.5 + 0.3,
+      color: col,
+      alpha: isLight ? (Math.random() * 0.35 + 0.15) : (Math.random() * 0.5 + 0.3),
       pulse: Math.random() * Math.PI * 2,
       pulseSpeed: Math.random() * 0.04 + 0.02,
       isHero: isHero
@@ -1379,17 +1519,19 @@ function createParticles() {
 function createTelemetry() {
   const canvas = document.getElementById('login-canvas');
   if (!canvas) return;
+  const isLight = (document.documentElement.getAttribute('data-theme') || 'light') === 'light';
   telemetryStreams = [];
   const streamCount = Math.min(Math.floor(canvas.width / 130), 14);
   for (let i = 0; i < streamCount; i++) {
+    const col = isLight ? (Math.random() > 0.4 ? '#475569' : '#0284c7') : (Math.random() > 0.4 ? '#23d6bb' : '#38bdf8');
     telemetryStreams.push({
       x: (i + 0.5) * (canvas.width / streamCount) + (Math.random() - 0.5) * 40,
       y: Math.random() * canvas.height,
       text: TELEMETRY_PHRASES[Math.floor(Math.random() * TELEMETRY_PHRASES.length)],
       vy: -(Math.random() * 0.45 + 0.25),
-      alpha: Math.random() * 0.35 + 0.12,
+      alpha: isLight ? (Math.random() * 0.25 + 0.08) : (Math.random() * 0.35 + 0.12),
       fontSize: Math.floor(Math.random() * 2) + 10,
-      color: Math.random() > 0.4 ? '#23d6bb' : '#38bdf8'
+      color: col
     });
   }
 }
